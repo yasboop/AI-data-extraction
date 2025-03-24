@@ -49,7 +49,7 @@ OUTPUT_FORMATS = ["json", "csv", "txt"]
 
 # API Settings
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
-API_PORT = int(os.getenv("API_PORT", 8000))
+API_PORT = int(os.getenv("API_PORT", 9003))
 
 # QuickBooks Settings
 QUICKBOOKS_API_KEY = os.getenv("QUICKBOOKS_API_KEY")

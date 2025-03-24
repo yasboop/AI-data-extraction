@@ -83,6 +83,7 @@ class EnhancedContractExtractor(AIExtractor):
         """
         Augment AI extraction results with regex extraction results
         Regex is used to fill in gaps or enhance existing fields, not to replace AI results
+        Also cleans up duplicate fields and null values
         
         Parameters:
         - ai_data: Data extracted by AI (modified in place)
@@ -90,6 +91,7 @@ class EnhancedContractExtractor(AIExtractor):
         """
         logger.debug("Augmenting AI extraction with regex patterns")
         
+        # First pass: augment AI data with regex data for missing fields
         for key, value in regex_data.items():
             # Skip null regex values
             if value is None:
@@ -98,26 +100,75 @@ class EnhancedContractExtractor(AIExtractor):
             # For complex fields like payment_terms, legal_obligations, signatures
             if isinstance(value, dict) and key in ai_data and isinstance(ai_data[key], dict):
                 for subkey, subvalue in value.items():
-                    # Augment if AI didn't extract this subfield
-                    if subkey not in ai_data[key] or not ai_data[key][subkey]:
-                        ai_data[key][subkey] = subvalue
-                        logger.debug(f"Augmented AI data with regex for {key}.{subkey}")
-                    
-            # For list fields within dictionaries (e.g., legal_obligations)
-            elif isinstance(value, dict) and key == "legal_obligations" and key in ai_data:
-                for party, obligations in value.items():
-                    if party in ai_data[key] and isinstance(obligations, list):
-                        # Add any regex-detected obligations not already in the AI results
-                        ai_obligations = set(ai_data[key][party]) if ai_data[key][party] else set()
-                        for obligation in obligations:
-                            if obligation and obligation not in ai_obligations:
-                                ai_data[key][party].append(obligation)
-                                logger.debug(f"Added regex-detected obligation for {party}")
-                                
-            # For simple fields, use regex only if AI didn't find a value
-            elif key not in ai_data or ai_data[key] is None or ai_data[key] == "":
-                ai_data[key] = value
-                logger.debug(f"Filled missing AI field {key} with regex result")
+                    # Only augment if AI didn't extract this subfield or it's null
+                    if subkey not in ai_data[key] or ai_data[key][subkey] is None:
+                        if subvalue is not None:  # Only add non-null values
+                            logger.debug(f"Augmented AI data with regex for {key}.{subkey}")
+                            ai_data[key][subkey] = subvalue
+            # For simple fields
+            elif key not in ai_data or ai_data[key] is None:
+                if value is not None:  # Only add non-null values
+                    logger.debug(f"Augmented AI data with regex for {key}")
+                    ai_data[key] = value
+        
+        # Second pass: clean up duplicate and null fields
+        self._clean_payment_terms(ai_data)
+        self._clean_legal_obligations(ai_data)
+        self._clean_signatures(ai_data)
+    
+    def _clean_payment_terms(self, data: Dict[str, Any]) -> None:
+        """Clean up payment_terms to remove duplicates and null values"""
+        if 'payment_terms' in data and isinstance(data['payment_terms'], dict):
+            # Remove null fields
+            data['payment_terms'] = {k: v for k, v in data['payment_terms'].items() 
+                                    if v is not None}
+            
+            # Remove legacy/duplicate fields that shouldn't be in the output
+            fields_to_remove = ['amount', 'schedule', 'methods']
+            for field in fields_to_remove:
+                if field in data['payment_terms']:
+                    logger.debug(f"Removing duplicate field {field} from payment_terms")
+                    data['payment_terms'].pop(field, None)
+    
+    def _clean_legal_obligations(self, data: Dict[str, Any]) -> None:
+        """Clean up legal_obligations to remove duplicates and null values"""
+        if 'legal_obligations' in data and isinstance(data['legal_obligations'], dict):
+            # Remove null values and empty lists
+            for key in list(data['legal_obligations'].keys()):
+                if data['legal_obligations'][key] is None:
+                    data['legal_obligations'].pop(key, None)
+                elif isinstance(data['legal_obligations'][key], list) and len(data['legal_obligations'][key]) == 0:
+                    data['legal_obligations'].pop(key, None)
+            
+            # If both service_provider_obligations and service_provider exist, prioritize the better one
+            if ('service_provider_obligations' in data['legal_obligations'] and 
+                'service_provider' in data['legal_obligations']):
+                # Keep the one with more content, or the formatted one if same length
+                if (len(data['legal_obligations']['service_provider_obligations']) >= 
+                    len(data['legal_obligations']['service_provider'])):
+                    data['legal_obligations'].pop('service_provider', None)
+                else:
+                    data['legal_obligations'].pop('service_provider_obligations', None)
+            
+            # Same for client fields
+            if ('client_obligations' in data['legal_obligations'] and 
+                'client' in data['legal_obligations']):
+                if (len(data['legal_obligations']['client_obligations']) >= 
+                    len(data['legal_obligations']['client'])):
+                    data['legal_obligations'].pop('client', None)
+                else:
+                    data['legal_obligations'].pop('client_obligations', None)
+    
+    def _clean_signatures(self, data: Dict[str, Any]) -> None:
+        """Clean up signatures to remove duplicates and null values"""
+        if 'signatures' in data and isinstance(data['signatures'], dict):
+            # Remove null fields
+            for key in list(data['signatures'].keys()):
+                if data['signatures'][key] is None:
+                    data['signatures'].pop(key, None)
+                elif isinstance(data['signatures'][key], dict):
+                    data['signatures'][key] = {k: v for k, v in data['signatures'][key].items() 
+                                              if v is not None}
     
     def _extract_contract_with_regex(self, text: str) -> Dict[str, Any]:
         """Extract contract data using regular expressions for common patterns"""
@@ -307,27 +358,50 @@ class EnhancedContractExtractor(AIExtractor):
         """Override to provide enhanced contract extraction prompt"""
         if document_type == "contract":
             return """
-            Extract the following information from this contract document and return it as a JSON object:
-            - contract_number: The unique identifier for this contract
-            - client_name: The name of the client or customer organization
-            - service_provider: The name of the service provider or vendor
-            - start_date: The date the contract begins
-            - end_date: The date the contract ends or expires
-            - payment_terms: Full details about payment amounts, schedule, and methods
-            - renewal_clause: The specific terms for contract renewal
-            - legal_obligations: Key legal obligations for both parties
-            - termination_conditions: Details about how the contract can be terminated
-            - signatures: Information about the signatories and signing date
+            Extract the following information from this contract document and return it as a structured JSON object:
             
-            Ensure all fields are returned in the JSON structure. If a field is not found, set its value to null.
-            Pay special attention to:
-            1. The contract details at the beginning of the document
-            2. Sections specifically labeled with terms, payment, renewal, etc.
-            3. Obligations of each party
-            4. Termination and renewal conditions
+            {
+              "contract_number": "The unique identifier for this contract",
+              "client_name": "The full legal name of the client organization (just the name, not address)",
+              "service_provider": "The full legal name of the service provider (just the name, not address)",
+              "start_date": "The precise date when the contract becomes effective (format: Month Day, Year)",
+              "end_date": "The precise date when the contract expires (format: Month Day, Year)",
+              "payment_terms": {
+                "service_fee": "The exact fee amount with currency and frequency/period",
+                "payment_schedule": "How often payments are due (e.g., monthly, quarterly)",
+                "payment_due": "When payments must be made (e.g., within 30 days)",
+                "late_payment": "Any penalties or interest for late payments"
+              },
+              "renewal_clause": "The complete terms for contract renewal including notice periods and price adjustments",
+              "legal_obligations": {
+                "service_provider_obligations": ["List each main obligation as a separate item"],
+                "client_obligations": ["List each main obligation as a separate item"]
+              },
+              "termination_conditions": "The full conditions under which either party can terminate the contract",
+              "signatures": {
+                "service_provider": {
+                  "name": "Name of the service provider signatory",
+                  "title": "Title of the service provider signatory",
+                  "date": "Date signed by service provider"
+                },
+                "client": {
+                  "name": "Name of the client signatory",
+                  "title": "Title of the client signatory",
+                  "date": "Date signed by client"
+                }
+              }
+            }
             
-            For complex fields like legal_obligations and payment_terms, provide detailed information.
-            Return ONLY the JSON object and nothing else.
+            Guidelines for extraction:
+            1. Extract ONLY the information that exists in the document
+            2. Keep the values concise and use the exact language from the document when possible
+            3. Don't add any field or data that is not explicitly in the contract
+            4. Remove all duplicate fields (e.g. payment_terms should not contain 'amount', 'schedule', 'methods')
+            5. Format all lists as proper JSON arrays
+            6. Format all amounts with proper currency symbols
+            7. Use consistent date formatting
+            
+            Return ONLY the well-structured JSON object and nothing else.
             """
         else:
             return super()._generate_extraction_prompt(document_type)
@@ -348,23 +422,31 @@ class EnhancedContractExtractor(AIExtractor):
         try:
             # Prepare prompt for summary generation
             prompt = f"""
-            Generate a clear, concise executive summary of this contract in 3-5 paragraphs.
-            Focus on the most important elements of the agreement:
+            Generate a structured executive summary of this contract with two main sections:
             
-            1. Who are the parties involved and what is the purpose of this contract?
-            2. What are the key deliverables or services?
-            3. What are the financial terms and payment schedule?
-            4. What is the timeframe (start and end dates)?
-            5. What are the most important obligations for each party?
-            6. What are the key termination and renewal conditions?
+            ### Executive Summary of Contract {extracted_data.get('contract_number', '')}
             
-            Make the summary actionable for business stakeholders by highlighting any important deadlines, 
-            required actions, and potential risks. Keep your summary objective and fact-based.
+            Create a concise 3-4 paragraph summary covering:
+            - Parties Involved and Purpose
+            - Key Deliverables or Services
+            - Financial Terms and Payment Schedule
+            - Timeframe (including start/end dates and renewal conditions)
+            - Important Obligations for each party
+            - Key Termination and Renewal Conditions
+            
+            ### Actionable Insights for Business Stakeholders
+            
+            Create a bulleted list with 3 categories:
+            - Important Deadlines: Key dates that require action or attention
+            - Required Actions: Specific steps each party must take to comply with the contract
+            - Potential Risks: Areas where non-compliance or disputes might arise
+            
+            Make the summary business-focused, highlighting actionable information for executives. Focus on clarity and precision.
             
             Here's the data extracted from the contract:
             {json.dumps(extracted_data, indent=2)}
             
-            Original contract text:
+            Original contract text (first part):
             {document_content[:3000]}  # Truncate if too long
             """
             
@@ -380,11 +462,11 @@ class EnhancedContractExtractor(AIExtractor):
                     json={
                         "model": "pixtral-12b",
                         "messages": [
-                            {"role": "system", "content": "You are a legal expert who creates clear, professional contract summaries for business executives."},
+                            {"role": "system", "content": "You are an expert legal and business analyst who creates actionable contract summaries for executives. Your summaries are precise, fact-based, and focused on business implications. You highlight key dates, financial terms, obligations, and risks. You organize information in a structured, scannable format that busy executives can quickly understand. You never include personal opinions or subjective assessments."},
                             {"role": "user", "content": prompt}
                         ],
                         "temperature": 0.1,  # Lower temperature for more factual output
-                        "max_tokens": 1000
+                        "max_tokens": 1200
                     },
                     timeout=60.0
                 )

@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 
 # Add project root to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add the ai-document-extraction directory to the path
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai-document-extraction"))
 
 # Import the AIExtractor
 from utils.ai_extractor import AIExtractor
@@ -21,10 +23,14 @@ load_dotenv()
 
 def read_sample_document(filename):
     """Read a sample document from the sample_documents directory."""
+    # First try in the local sample_documents directory
     file_path = os.path.join("sample_documents", filename)
     if not os.path.exists(file_path):
-        logger.error(f"Sample document not found: {file_path}")
-        return None
+        # Then try in the ai-document-extraction/sample_documents directory
+        file_path = os.path.join("ai-document-extraction", "sample_documents", filename)
+        if not os.path.exists(file_path):
+            logger.error(f"Sample document not found: {file_path}")
+            return None
     
     with open(file_path, "r") as file:
         return file.read()

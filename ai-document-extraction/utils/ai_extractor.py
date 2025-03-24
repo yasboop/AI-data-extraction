@@ -186,9 +186,28 @@ class AIExtractor:
         return text
     
     def encode_image(self, image_path: str) -> str:
-        """Convert an image to base64 encoded string."""
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
+        """Encode an image to base64 for API requests"""
+        try:
+            if not os.path.exists(image_path):
+                logger.error(f"Image path does not exist: {image_path}")
+                raise FileNotFoundError(f"Image file not found: {image_path}")
+            
+            logger.debug(f"Encoding image from: {image_path}")
+            
+            # Check file size
+            file_size = os.path.getsize(image_path) / (1024 * 1024)  # Size in MB
+            if file_size > 20:
+                logger.warning(f"Image file is large ({file_size:.2f} MB), may exceed API limits")
+            
+            with open(image_path, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+            
+            logger.debug(f"Successfully encoded image ({len(encoded_string) / 1024:.2f} KB base64 data)")
+            return encoded_string
+        
+        except Exception as e:
+            logger.error(f"Error encoding image: {str(e)}")
+            raise
             
     def extract_data(self, document_content: str, document_type: str, image_path: str = None) -> Dict[str, Any]:
         """
@@ -203,6 +222,15 @@ class AIExtractor:
         - Dictionary of extracted fields
         """
         logger.info(f"Extracting data from {document_type} document using {self.model.capitalize()} AI")
+        logger.info(f"Image path provided: {image_path}")
+        
+        # Force using multimodal extraction for all PDFs to diagnose issues
+        use_multimodal = False
+        if image_path and os.path.exists(image_path):
+            # Check if the file is a PDF
+            if image_path.lower().endswith('.pdf'):
+                use_multimodal = True
+                logger.info(f"PDF detected for multimodal extraction: {image_path}")
         
         # Truncate text if too long
         if len(document_content) > self.max_tokens:
@@ -213,8 +241,24 @@ class AIExtractor:
         if not self.mistral_api_key:
             logger.warning("No Mistral API key available, using dummy extraction")
             return self._dummy_extraction(document_type)
-                
-        # Try direct regex extraction first for invoices
+        
+        # Prefer multimodal extraction for all documents when image is available
+        # This is especially helpful for documents with tables (invoices, receipts, etc.)
+        if use_multimodal:
+            logger.info(f"Using multimodal extraction for {document_type} to better capture document structure")
+            extracted_data = self._extract_with_pixtral(document_content, document_type, image_path)
+            
+            # For invoices, also apply regex augmentation to refine the multimodal extraction
+            if document_type == "invoice":
+                regex_extraction = self._extract_invoice_with_regex(document_content)
+                extracted_data = self._augment_multimodal_with_regex(extracted_data, regex_extraction)
+                logger.info("Applied regex augmentation to multimodal extraction")
+            
+            return extracted_data
+        
+        logger.info(f"Multimodal extraction not available, falling back to text-only extraction")
+            
+        # If image is not available, try direct regex extraction first for invoices
         if document_type == "invoice":
             extracted_data = self._extract_invoice_with_regex(document_content)
             # If we got good data from regex, return it (faster and cheaper)
@@ -245,102 +289,91 @@ class AIExtractor:
             prompt = self._generate_extraction_prompt(document_type)
             messages = []
             
-            # Create system message for better context
-            system_message = f"You are an expert document analysis system specialized in extracting structured information from {document_type}s. Extract all relevant information including line items, amounts, dates, and entities."
+            # Create system message for better context with special emphasis on tables
+            system_message = f"""You are an expert document analysis system specialized in extracting structured information from {document_type}s. 
+Extract all relevant information including line items, amounts, dates, and entities.
+
+IMPORTANT: When extracting tables from documents:
+1. Identify tabular structures visually, even if text extraction breaks the alignment
+2. Correctly separate column headers from content
+3. Process each table row as a distinct item with properly structured fields
+4. Never include table borders, lines, or formatting characters in the extracted content
+5. Pay special attention to alignment of data across columns"""
             
-            # Ensure text isn't too long to avoid 400 errors
-            if len(text) > 12000:  # Mistral models have context limits
-                logger.warning(f"Text too long for Pixtral API ({len(text)} chars), truncating to 12000 chars")
-                text = text[:12000]
-                
-            # If image is available, add it to the messages
             if image_path and os.path.exists(image_path):
                 logger.info(f"Using multimodal extraction with image: {image_path}")
-                try:
-                    # Ensure image is in a supported format (JPEG/PNG)
-                    with Image.open(image_path) as img:
-                        img_buffer = io.BytesIO()
-                        img.save(img_buffer, format="JPEG")
-                        encoded_image = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
+                
+                # For PDFs, we need to convert first page to image
+                if image_path.lower().endswith('.pdf'):
+                    try:
+                        import fitz  # PyMuPDF
+                        temp_image_path = image_path.replace('.pdf', '.jpg')
+                        logger.info(f"Converting first page of PDF to image: {temp_image_path}")
                         
-                    # Prepare multimodal message with image and text
+                        # Open the PDF and get the first page
+                        pdf_document = fitz.open(image_path)
+                        first_page = pdf_document[0]
+                        
+                        # Render page to an image with high resolution
+                        pix = first_page.get_pixmap(matrix=fitz.Matrix(2, 2))
+                        pix.save(temp_image_path)
+                        
+                        # Use the image for extraction
+                        image_path = temp_image_path
+                        logger.info(f"Successfully converted PDF to image: {image_path}")
+                    except ImportError:
+                        logger.warning("PyMuPDF not installed, attempting to use PDF directly")
+                    except Exception as pdf_err:
+                        logger.warning(f"Error converting PDF to image: {str(pdf_err)}")
+                
+                # Encode image to base64
+                try:
+                    base64_image = self.encode_image(image_path)
+                    logger.info("Successfully encoded image to base64")
+                    
+                    # Include both text and image in the request
                     messages = [
                         {"role": "system", "content": system_message},
-                        {
-                            "role": "user", 
-                            "content": [
-                                {
-                                    "type": "image",
-                                    "source": {
-                                        "type": "base64",
-                                        "media_type": "image/jpeg",
-                                        "data": encoded_image
-                                    }
-                                },
-                                {
-                                    "type": "text",
-                                    "text": f"{prompt}\n\nExtract data from this document image and the text below:\n{text}"
-                                }
-                            ]
-                        }
+                        {"role": "user", "content": [
+                            {"type": "text", "text": f"\n{prompt}\n\nText extracted from document:\n{text}"},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                        ]}
                     ]
-                except Exception as img_error:
-                    logger.error(f"Error processing image: {str(img_error)}")
-                    # Fall back to text-only if image processing fails
+                except Exception as img_err:
+                    logger.error(f"Error encoding image: {str(img_err)}")
+                    # Fall back to text-only if image encoding fails
                     messages = [
                         {"role": "system", "content": system_message},
-                        {"role": "user", "content": f"{prompt}\n\nText extracted from document:\n{text}"}
+                        {"role": "user", "content": f"\n{prompt}\n\nText extracted from document:\n{text}"}
                     ]
+                    logger.warning("Falling back to text-only due to image encoding error")
             else:
-                # Text-only fallback
                 logger.info("Using text-only extraction with Pixtral (no image provided)")
+                # Text-only request
                 messages = [
                     {"role": "system", "content": system_message},
-                    {"role": "user", "content": f"{prompt}\n\nText extracted from document:\n{text}"}
+                    {"role": "user", "content": f"\n{prompt}\n\nText extracted from document:\n{text}"}
                 ]
             
-            # Make API request to Mistral with Pixtral model
-            logger.debug("Sending API request to Mistral for Pixtral model")
-            logger.debug(f"Request messages structure: {json.dumps(messages, indent=2)}")
+            logger.debug(f"Request messages structure: {str(messages)[:200]}...")
             
-            # Try first with the Pixtral model - using correct model name "pixtral-12b" instead of "mistral-pixtral-12b"
-            try:
-                response = httpx.post(
-                    "https://api.mistral.ai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.mistral_api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "pixtral-12b",  # Correct model name
-                        "messages": messages,
-                        "temperature": 0.0,  # Use 0 temperature for more reliable extraction
-                        "max_tokens": 4000,  # Allow larger response for detailed extraction
-                        "response_format": {"type": "json_object"}
-                    },
-                    timeout=90.0  # Longer timeout for image processing
-                )
-                response.raise_for_status()
-            except Exception as pixtral_error:
-                # If the Pixtral model fails, try the fallback model
-                logger.warning(f"Error with pixtral-12b: {str(pixtral_error)}. Falling back to open-mistral-7b")
-                response = httpx.post(
-                    "https://api.mistral.ai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.mistral_api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "open-mistral-7b",  # Fallback to simpler model
-                        "messages": messages,
-                        "temperature": 0.0,
-                        "max_tokens": 2000,
-                        "response_format": {"type": "json_object"}
-                    },
-                    timeout=60.0
-                )
-                response.raise_for_status()
+            # Make API request to Mistral API for Pixtral model
+            response = httpx.post(
+                "https://api.mistral.ai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.mistral_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "pixtral-12b", # Explicitly using pixtral-12b for best quality
+                    "messages": messages,
+                    "temperature": 0.05,  # Very low temperature for factual extraction
+                    "response_format": {"type": "json_object"}  # Ensure JSON output
+                },
+                timeout=90.0
+            )
             
+            response.raise_for_status()
             result = response.json()
             
             # Extract the JSON response
@@ -349,6 +382,7 @@ class AIExtractor:
             
             try:
                 extracted_data = json.loads(content)
+                logger.info("Successfully parsed JSON response from Pixtral")
             except json.JSONDecodeError as json_err:
                 logger.error(f"Error parsing JSON response: {str(json_err)}")
                 logger.debug(f"Invalid JSON content: {content}")
@@ -457,6 +491,13 @@ class AIExtractor:
             - currency: The currency used in the invoice
             - line_items: An array of items/services with their descriptions, quantities, unit prices, and amounts
 
+            IMPORTANT INSTRUCTIONS FOR TABLE EXTRACTION:
+            1. Pay special attention to any tables in the document.
+            2. For line items in tables, clearly separate each column (description, quantity, unit price, amount) into distinct fields.
+            3. Do NOT include column headers or formatting characters (like dashes, lines, or separators) in the description field.
+            4. Each line item should have its own separate entry with properly aligned values across all columns.
+            5. When you see a table structure, recognize that it represents separate data fields and not one continuous text field.
+            
             Ensure all fields are returned in the JSON structure. If a field is not found, set its value to null.
             Pay special attention to:
             1. Company names at the top of the document
@@ -487,6 +528,12 @@ class AIExtractor:
             - tip_amount: Tip or gratuity amount (if any)
             - currency: Currency used in the transaction
 
+            IMPORTANT INSTRUCTIONS FOR TABLE EXTRACTION:
+            1. Pay special attention to any tables in the document.
+            2. For items in tables, clearly separate each column (description, quantity, unit price, amount) into distinct fields.
+            3. Do NOT include column headers or formatting characters in the description field.
+            4. Each item should have its own separate entry with properly aligned values across all columns.
+            
             Ensure all fields are returned in the JSON. If a field is not found, set its value to null.
             Return ONLY the JSON object and nothing else.
             """
@@ -494,6 +541,12 @@ class AIExtractor:
             return f"""
             Extract all relevant information from this {document_type} document and return it as a structured JSON object.
             Identify key fields such as dates, amounts, identifiers, and parties involved.
+            
+            IMPORTANT INSTRUCTIONS FOR TABLE EXTRACTION:
+            1. Pay special attention to any tables in the document.
+            2. For items in tables, clearly separate each column into distinct fields.
+            3. Do NOT include column headers or formatting characters in content fields.
+            4. Each row should have its own separate entry with properly aligned values across all columns.
             
             Ensure all fields are returned in the JSON. If a field is not found, set its value to null.
             Return ONLY the JSON object and nothing else.
@@ -684,4 +737,65 @@ class AIExtractor:
                 "type": document_type,
                 "date": "January 1, 2023",
                 "extracted_text": "Sample extracted text for demonstration purposes"
-            } 
+            }
+    
+    def _augment_multimodal_with_regex(self, result: Dict[str, Any], regex_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Augment multimodal extraction results with regex precision.
+        
+        This method combines the strengths of multimodal extraction (understanding document layout)
+        with regex extraction (precise field formats).
+        
+        Parameters:
+        - result: Dictionary with extracted data from multimodal extraction
+        - regex_data: Dictionary with extracted data from regex extraction
+        
+        Returns:
+        - Enhanced extraction results
+        """
+        logger.debug("Augmenting multimodal extraction with regex precision")
+        
+        # Fields that are typically more reliable from regex
+        standard_fields = [
+            "invoice_number", "invoice_date", "payment_due_date",
+            "payment_terms", "tax_rate", "account_number", "purchase_order"
+        ]
+        
+        # Copy the multimodal results to avoid modifying the original
+        augmented_result = result.copy()
+        
+        # For standard fields, prefer regex if available
+        for field in standard_fields:
+            # If regex found the field and multimodal didn't, add it
+            if field in regex_data and regex_data[field] and field not in result:
+                augmented_result[field] = regex_data[field]
+                logger.debug(f"Added missing field {field} from regex extraction: {regex_data[field]}")
+            
+            # If both found the field but with different values, use regex (usually more precise)
+            elif field in regex_data and regex_data[field] and field in result:
+                # Convert values to strings before calling strip() to handle all data types
+                regex_value = str(regex_data[field]).strip()
+                result_value = str(result[field]).strip()
+                
+                if regex_value != result_value:
+                    augmented_result[field] = regex_data[field]
+                    logger.debug(f"Updated field {field} with regex extraction: {regex_data[field]}")
+        
+        # For line items, check if both extractions have them and same count
+        if 'line_items' in result and 'line_items' in regex_data:
+            if len(result['line_items']) == len(regex_data['line_items']):
+                # If we have the same number of line items, clean up the descriptions
+                # which might have formatting characters in regex extraction
+                for i in range(len(augmented_result['line_items'])):
+                    if 'description' in regex_data['line_items'][i]:
+                        # Clean up description by removing dashes and formatting
+                        clean_desc = re.sub(r'[-_=]{3,}', '', regex_data['line_items'][i]['description'])
+                        clean_desc = re.sub(r'\s{2,}', ' ', clean_desc).strip()
+                        
+                        # Update only if we have a reasonable description (not just whitespace)
+                        if clean_desc:
+                            augmented_result['line_items'][i]['description'] = clean_desc
+                            logger.debug(f"Cleaned up line item {i} description")
+        
+        logger.info("Applied regex augmentation to multimodal extraction")
+        return augmented_result 

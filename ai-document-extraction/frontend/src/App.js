@@ -7,6 +7,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import UploadPage from './pages/UploadPage';
 import AboutPage from './pages/AboutPage';
+import ResultsPage from './pages/ResultsPage';
 
 import './App.css';
 
@@ -19,6 +20,7 @@ function App() {
           <Route path="/" element={<UploadPage />} />
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/results" element={<ResultsPage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>

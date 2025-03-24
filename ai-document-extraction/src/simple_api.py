@@ -12,6 +12,7 @@ import uvicorn
 from pydantic import BaseModel
 import re
 import pypdf  # Add import for PDF processing
+import traceback
 
 # Add project root to the path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -117,110 +118,108 @@ async def health_check():
         "model": extractor.model
     }
 
-@app.post("/extract")
-async def extract_data(file: UploadFile = File(...), document_type: str = Form("invoice")):
+def detect_document_type(filename: str) -> str:
     """
-    Extract data from an uploaded document using AI
+    Detect document type based on filename
+    """
+    filename = filename.lower()
+    
+    if any(term in filename for term in ["invoice", "inv", "bill"]):
+        return "invoice"
+    elif any(term in filename for term in ["contract", "agreement", "legal"]):
+        return "contract"
+    elif any(term in filename for term in ["receipt", "payment"]):
+        return "receipt"
+    else:
+        # Default to invoice if we can't determine
+        return "invoice"
+
+@app.post("/extract")
+async def extract_document(file: UploadFile = File(...), doc_type: str = Form("auto")):
+    """
+    Extract structured data from uploaded document
     """
     try:
-        # Get the file extension
-        _, extension = os.path.splitext(file.filename)
-        extension = extension.lower()
+        logger.info(f"Received file: {file.filename}, type: {doc_type}")
         
-        # Validate file type
-        valid_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.txt']
-        if extension not in valid_extensions:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Unsupported file format. Please upload {', '.join(valid_extensions)}"
-            )
-        
-        # Validate document type
-        if document_type not in DOCUMENT_TYPES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported document type. Please use one of: {', '.join(DOCUMENT_TYPES.keys())}"
-            )
-            
-        # Save the file with a unique timestamp-based name
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{document_type}_{timestamp}{extension}"
-        file_path = os.path.join("uploads", filename)
+        # Determine document type if auto-detection is requested
+        if doc_type == "auto":
+            doc_type = detect_document_type(file.filename)
+            logger.info(f"Auto-detected document type: {doc_type}")
         
         # Create uploads directory if it doesn't exist
         if not os.path.exists("uploads"):
             os.makedirs("uploads")
         
-        # Save the file
-        try:
-            content = await file.read()
-            with open(file_path, "wb") as f:
-                f.write(content)
-            logger.info(f"Saved uploaded file to {file_path}")
-        except Exception as e:
-            logger.error(f"Error saving file: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error saving file: {str(e)}")
+        # Generate a unique filename to prevent overwrites
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_ext = os.path.splitext(file.filename)[1]
+        safe_filename = f"{doc_type}_{timestamp}{file_ext}"
+        file_path = os.path.join("uploads", safe_filename)
         
-        # Extract text based on file type
-        extracted_text = ""
+        # Save the uploaded file
+        with open(file_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+        logger.info(f"Saved uploaded file to {file_path}")
         
-        if extension == ".pdf":
-            logger.info(f"Processing PDF file: {file_path}")
-            # Use the helper function instead of duplicating code
-            extracted_text = extract_text_from_pdf(file_path)
-            if extracted_text.startswith("Error processing PDF"):
-                logger.error(f"PDF extraction error: {extracted_text}")
-                # Continue with limited text rather than raising exception
-                extracted_text = f"Limited text from PDF: {filename}"
-                
-        elif extension in [".jpg", ".jpeg", ".png"]:
-            logger.info(f"Processing image file: {file_path}")
-            # For images, we'll use the multimodal capabilities
-            extracted_text = f"[Image file: {file.filename}]"
-            # The extractor will handle the image directly
-            
-        elif extension == ".txt":
-            logger.info(f"Processing text file: {file_path}")
-            # Read the text file
-            try:
-                with open(file_path, "r") as f:
-                    extracted_text = f.read()
-            except Exception as e:
-                logger.error(f"Error reading text file: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Error reading text file: {str(e)}")
+        # Extract text from PDF
+        logger.info(f"Processing PDF file: {file_path}")
+        text_content = extract_text_from_pdf(file_path)
         
-        # Choose the appropriate extractor based on document type
-        extraction_method = "text-only"
-        if extension in [".jpg", ".jpeg", ".png"]:
+        # Create the extractor
+        extractor = AIExtractor()
+        
+        # Extract structured data using AI
+        # Always pass the file_path for potential multimodal extraction
+        extracted_data = extractor.extract_data(
+            document_content=text_content,
+            document_type=doc_type,
+            image_path=file_path
+        )
+        
+        # Log detailed extracted data for debugging
+        logger.info(f"Extracted data fields: {list(extracted_data.keys())}")
+        logger.info(f"Document type: {doc_type}")
+        
+        # Add metadata about extraction method
+        # Check if the file is a PDF since we're using multimodal for PDFs
+        is_pdf = file_path.lower().endswith('.pdf')
+        use_multimodal = is_pdf and "pixtral" in extractor.model and os.path.exists(file_path)
+        
+        # Force extraction_method to "multimodal" for all PDFs (both invoices and contracts) when using Pixtral
+        if use_multimodal:
             extraction_method = "multimodal"
-            
-        # Use the appropriate extractor based on document type
-        if document_type == "contract":
-            logger.info("Using enhanced contract extractor")
-            extracted_data = contract_extractor.extract_data(
-                extracted_text, 
-                document_type,
-                file_path if extraction_method == "multimodal" else None
-            )
+            logger.info(f"Using multimodal extraction for {doc_type}")
         else:
-            extracted_data = extractor.extract_data(
-                extracted_text, 
-                document_type,
-                file_path if extraction_method == "multimodal" else None
-            )
+            extraction_method = "text-only"
+            logger.info(f"Using text-only extraction for {doc_type}")
         
-        # Add metadata
-        extracted_data["filename"] = filename
-        extracted_data["document_type"] = document_type
-        extracted_data["extraction_method"] = extraction_method
+        logger.info(f"Extraction complete using {extraction_method} extraction")
         
-        return extracted_data
+        # Return the extracted data with metadata
+        response_data = {
+            "success": True,
+            "document_type": doc_type,
+            "extraction_method": extraction_method,  # This should match what the frontend expects
+            "filename": file.filename,
+            "data": {
+                # Add extraction_method to the data object as well, which is what ResultDisplay.js uses
+                "extraction_method": extraction_method,
+                "document_type": doc_type,
+                **extracted_data
+            }
+        }
         
-    except HTTPException:
-        raise
+        # Log the final response structure to verify
+        logger.info(f"Response data structure: {list(response_data.keys())}")
+        logger.info(f"Response data['data'] structure: {list(response_data['data'].keys())}")
+        
+        return response_data
+        
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
+        logger.error(f"Error extracting data: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/document-types")
 async def get_document_types():

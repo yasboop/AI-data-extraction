@@ -1,0 +1,49 @@
+/* FileUpload.css */
+.rpv-core__doc-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+  color: #f44336;
+}
+
+.rpv-core__doc-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+}
+
+/* Custom styles for PDF viewer */
+.rpv-core__viewer {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+/* Make sure the PDF viewer is responsive */
+.rpv-core__viewer canvas {
+  max-width: 100%;
+  height: auto !important;
+}
+
+/* Improve visibility of toolbar buttons */
+.rpv-core__minimal-button {
+  background-color: #f5f5f5 !important;
+  border-radius: 4px !important;
+}
+
+.rpv-core__minimal-button:hover {
+  background-color: #e0e0e0 !important;
+}
+
+/* Basic styling that might be needed for the component */
+.file-preview {
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+} 
