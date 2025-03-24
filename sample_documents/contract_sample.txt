@@ -1,0 +1,85 @@
+===========================================================
+                SERVICE AGREEMENT CONTRACT
+===========================================================
+
+CONTRACT NUMBER: CTR-2024-0157
+
+EFFECTIVE DATE: April 1, 2024
+EXPIRATION DATE: March 31, 2025
+
+BETWEEN:
+    CloudTech Solutions Inc. ("Service Provider")
+    789 Enterprise Drive, Suite 500
+    San Francisco, CA 94105
+    
+AND:
+    Global Innovations Ltd. ("Client")
+    456 Commerce Plaza
+    Chicago, IL 60603
+    Attn: Sarah Johnson, CTO
+
+===========================================================
+                TERMS AND CONDITIONS
+===========================================================
+
+1. SERVICES
+   The Service Provider agrees to provide cloud hosting and management
+   services as detailed in Appendix A, including but not limited to
+   server maintenance, data backup, and security monitoring.
+
+2. TERM
+   This Agreement commences on the Effective Date (April 1, 2024) and
+   continues until the Expiration Date (March 31, 2025), unless
+   terminated earlier in accordance with this Agreement.
+
+3. PAYMENT TERMS
+   3.1 Service Fee: $12,500 per quarter
+   3.2 Payment Schedule: Invoiced quarterly in advance
+   3.3 Payment Due: Within 30 days of invoice date
+   3.4 Late Payment: Subject to 1.5% monthly interest on outstanding amounts
+
+4. RENEWAL CLAUSE
+   This Agreement shall automatically renew for successive one-year
+   periods unless either party provides written notice of non-renewal
+   at least sixty (60) days prior to the Expiration Date. Renewal terms
+   may be subject to a price adjustment not exceeding 5% of the previous
+   term's fees.
+
+5. KEY LEGAL OBLIGATIONS
+   5.1 Service Provider Obligations:
+       - Maintain 99.9% uptime for all services
+       - Implement industry-standard security protocols
+       - Provide 24/7 technical support with 2-hour response time
+       - Perform weekly data backups with 30-day retention
+   
+   5.2 Client Obligations:
+       - Pay all fees when due
+       - Designate a primary technical contact person
+       - Comply with acceptable use policies
+       - Report any security incidents within 24 hours
+
+6. CONFIDENTIALITY
+   Both parties agree to maintain the confidentiality of all proprietary
+   information for a period of five (5) years beyond the termination
+   of this Agreement.
+
+7. LIMITATION OF LIABILITY
+   Neither party shall be liable for indirect, special, or consequential
+   damages. Service Provider's total liability shall not exceed the
+   total amount paid under this Agreement.
+
+8. TERMINATION
+   Either party may terminate this Agreement with thirty (30) days
+   written notice for material breach that remains uncured.
+
+===========================================================
+                SIGNATURES
+===========================================================
+
+SERVICE PROVIDER:                    CLIENT:
+
+____________________________         ____________________________
+Michael Chen, CEO                    Sarah Johnson, CTO
+CloudTech Solutions Inc.             Global Innovations Ltd.
+
+Date: March 15, 2024                 Date: March 15, 2024 
