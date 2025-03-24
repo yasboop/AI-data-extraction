@@ -1,0 +1,40 @@
+===================================
+           COFFEE HAVEN
+===================================
+        123 Brew Street
+      San Francisco, CA 94103
+        Tel: 415-555-7890
+    www.coffeehavensf.com
+
+RECEIPT #: RCT-9834
+Date: November 21, 2023
+Time: 10:45 AM
+Cashier: Emma
+
+-----------------------------------
+ITEM                 QTY    PRICE
+-----------------------------------
+Cappuccino            1     $4.95
+Croissant             1     $3.50
+Avocado Toast         1     $8.75
+Fresh Orange Juice    1     $4.25
+-----------------------------------
+Subtotal                    $21.45
+Sales Tax (8.5%)             $1.82
+Tip                          $4.00
+-----------------------------------
+TOTAL                       $27.27
+
+Payment Method: Visa
+Card #: XXXX-XXXX-XXXX-5678
+Authorization Code: 1234AB
+
+Thank you for your visit!
+Come again soon.
+
+-----------------------------------
+    Follow us on social media
+      @coffeehavensf
+-----------------------------------
+For feedback or inquiries:
+    info@coffeehavensf.com 

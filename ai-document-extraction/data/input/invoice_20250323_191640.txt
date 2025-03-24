@@ -1,0 +1,27 @@
+INVOICE
+
+Invoice #: INV-2023-0045
+Date: 2023-05-15
+Due Date: 2023-06-15
+
+Supplier: TechSupplies Inc.
+Address: 123 Tech Street, San Francisco, CA 94107
+Phone: (415) 555-1234
+Email: billing@techsupplies.com
+
+Customer: Global Solutions Ltd.
+Address: 456 Business Ave, New York, NY 10001
+
+Description                   Quantity    Unit Price    Amount
+-----------------------------------------------------------------
+1. Premium laptop stand       2           $85.00        $170.00
+2. Wireless keyboard          3           $60.00        $180.00
+3. Noise-canceling headphones 1           $220.00       $220.00
+4. External SSD 1TB           2           $130.00       $260.00
+
+                                        Subtotal:      $830.00
+                                        VAT (20%):     $166.00
+                                        Total:         $996.00
+
+Payment Terms: Net 30 days
+Payment Method: Bank transfer to account #87654321 

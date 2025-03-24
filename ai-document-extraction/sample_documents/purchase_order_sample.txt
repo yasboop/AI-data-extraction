@@ -1,0 +1,55 @@
+==================================
+       ACME CORPORATION
+==================================
+456 Business Avenue
+New York, NY 10001
+Tel: (212) 555-6789
+Email: procurement@acmecorp.com
+
+PURCHASE ORDER
+
+PO Number: PO-2023-7856
+Date: November 18, 2023
+Delivery Date: December 5, 2023
+
+VENDOR:
+Tech Solutions Inc.
+123 Tech Street
+San Francisco, CA 94103
+Contact: Sarah Johnson
+Email: sales@techsolutions.com
+Phone: (415) 555-1234
+
+SHIP TO:
+Acme Corporation - Warehouse
+789 Logistics Road
+Brooklyn, NY 11201
+Attn: Receiving Department
+Contact: Mike Thompson
+Phone: (212) 555-7890
+
+------------------------------------------------------------------
+ITEM #  | DESCRIPTION                  | QTY |  UNIT PRICE | TOTAL
+------------------------------------------------------------------
+TS-101  | Desktop Computer - Model X7  |  10 |    $895.00 | $8,950.00
+TS-203  | 27" Monitor - 4K Ultra HD    |  10 |    $349.99 | $3,499.90
+TS-305  | Wireless Keyboard & Mouse    |  15 |     $79.95 | $1,199.25
+TS-407  | Office Software Suite - Pro  |  10 |    $199.00 | $1,990.00
+------------------------------------------------------------------
+                                         SUBTOTAL:         $15,639.15
+                                         SHIPPING:            $350.00
+                                         TAX (8.875%):      $1,388.08
+                                         TOTAL:            $17,377.23
+
+Payment Terms: Net 45
+Special Instructions:
+- Please include PO number on all packages, invoices, and correspondence
+- Delivery must be scheduled 24 hours in advance
+- All items must include manufacturer warranty information
+
+Authorized by: John Smith
+Title: Procurement Manager
+Signature: ___________________
+
+For questions regarding this order, please contact:
+procurement@acmecorp.com or call (212) 555-4321 

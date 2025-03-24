@@ -1,0 +1,11 @@
+{
+  "contract_number": null,
+  "client_name": "ABC Corporation",
+  "service_provider": "XYZ Services Inc.",
+  "start_date": "January 1, 2023",
+  "end_date": "December 31, 2023",
+  "payment_terms": "Payment is due within 30 days of invoice. Amount: $50,000 per month.",
+  "renewal_clause": "The contract may be renewed for an additional year upon mutual agreement.",
+  "legal_obligations": "The client must provide timely access to necessary facilities. The service provider must deliver services as per the agreed SLA.",
+  "termination_conditions": "Either party may terminate the contract with a 30-day written notice. Termination due to breach requires immediate notice."
+}

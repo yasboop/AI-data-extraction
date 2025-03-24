@@ -1,0 +1,42 @@
+# Core dependencies
+python-dotenv
+httpx
+pillow
+pydantic
+
+# Document processing
+python-docx
+pypdf
+
+# AI and NLP
+mistralai
+transformers
+
+# Data processing
+pandas
+numpy
+
+# OCR Libraries
+pytesseract
+paddleocr
+pdf2image
+
+# Web API
+fastapi
+uvicorn
+python-multipart
+mangum
+flask
+requests
+
+# Database
+sqlalchemy
+psycopg2-binary
+alembic
+asyncpg
+
+# Integration
+# Removed quickbooks-api as it doesn't exist in PyPI
+
+# Utilities
+tqdm 

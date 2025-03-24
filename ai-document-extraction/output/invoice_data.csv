@@ -1,0 +1,2 @@
+invoice_number,supplier_name,invoice_date,total_amount,subtotal_amount,vat_amount,tax_rate,payment_due_date,payment_terms,client_name,client_address
+"INV-2023-4721","TECH SOLUTIONS INC.","November 15, 2023","6,695.81","6,150.00","545.81","8.875%","December 15, 2023","Net 30","Acme Corporation","456 Business Ave, New York, NY 10001"

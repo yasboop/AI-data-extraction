@@ -1,0 +1,48 @@
+================================
+       TECH SOLUTIONS INC.
+================================
+123 Tech Street, San Francisco, CA 94103
+Phone: (415) 555-1234 | Email: billing@techsolutions.com
+Website: www.techsolutions.com
+
+INVOICE
+
+Invoice #: INV-2023-4721
+Date: November 15, 2023
+Due Date: December 15, 2023
+
+BILL TO:
+Acme Corporation
+456 Business Ave
+New York, NY 10001
+Contact: John Smith
+Email: john.smith@acmecorp.com
+Phone: (212) 555-6789
+
+-----------------------------------------------------------------
+DESCRIPTION                    | QTY |  UNIT PRICE  |    AMOUNT
+-----------------------------------------------------------------
+Website Development Services   |  1  |   $2,500.00  |   $2,500.00
+Custom API Integration         |  8  |     $150.00  |   $1,200.00
+UI/UX Design                   | 20  |      $85.00  |   $1,700.00
+SEO Optimization Package       |  1  |     $750.00  |     $750.00
+-----------------------------------------------------------------
+                                        SUBTOTAL:      $6,150.00
+                                        TAX (8.875%):    $545.81
+                                        TOTAL:         $6,695.81
+
+Payment Terms: Net 30
+Payment Methods: Bank Transfer, Credit Card, Check
+
+Bank Details:
+Bank Name: First National Bank
+Account Name: Tech Solutions Inc.
+Account Number: 1234567890
+Routing Number: 123456789
+
+Notes:
+- Please include invoice number with payment
+- Late payments subject to 1.5% monthly interest
+- For questions regarding this invoice, please contact billing@techsolutions.com
+
+Thank you for your business! 

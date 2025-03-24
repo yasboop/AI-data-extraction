@@ -1,0 +1,50 @@
+{
+  "filename": "invoice_20250324_023342.txt",
+  "document_type": "invoice",
+  "extraction_method": "text-only",
+  "invoice_number": "INV-2023-4721",
+  "supplier_name": "TECH SOLUTIONS INC.",
+  "invoice_date": "November 15, 2023",
+  "total_amount": 6695.81,
+  "subtotal_amount": 6150.0,
+  "vat_amount": 545.81,
+  "tax_rate": 8.875,
+  "payment_due_date": "December 15, 2023",
+  "payment_terms": "Net 30",
+  "client_name": "Acme Corporation",
+  "client_address": "456 Business Ave New York, NY 10001",
+  "payment_methods": "Bank Transfer, Credit Card, Check",
+  "contact_information": {
+    "name": "John Smith",
+    "email": "john.smith@acmecorp.com",
+    "phone": "(212) 555-6789"
+  },
+  "currency": "USD",
+  "line_items": [
+    {
+      "description": "Website Development Services",
+      "quantity": 1,
+      "unit_price": 2500.0,
+      "amount": 2500.0
+    },
+    {
+      "description": "Custom API Integration",
+      "quantity": 8,
+      "unit_price": 150.0,
+      "amount": 1200.0
+    },
+    {
+      "description": "UI/UX Design",
+      "quantity": 20,
+      "unit_price": 85.0,
+      "amount": 1700.0
+    },
+    {
+      "description": "SEO Optimization Package",
+      "quantity": 1,
+      "unit_price": 750.0,
+      "amount": 750.0
+    }
+  ],
+  "tax_amount": "545.81"
+}
